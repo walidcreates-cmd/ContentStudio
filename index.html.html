@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Instagram Content Studio — Gemini 3 Flash</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Syne:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --surface: #141417;
+    --surface2: #1c1c21;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.14);
+    --accent: #c8f04a;
+    --accent2: #a8d438;
+    --text: #f0f0ee;
+    --muted: #888880;
+    --muted2: #444440;
+    --danger: #ff6b6b;
+    --purple: #b794f4;
+    --teal: #4fd1c5;
+    --orange: #f6ad55;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; min-height: 100vh; line-height: 1.6; }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 1.1rem 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0;
+    background: rgba(13,13,15,0.94);
+    backdrop-filter: blur(14px);
+    z-index: 100;
+  }
+  .logo { font-family: 'DM Serif Display', serif; font-size: 1.25rem; color: var(--text); }
+  .logo span { color: var(--accent); }
+  .api-status { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted2); transition: all .4s; }
+  .dot.ok { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .dot.err { background: var(--danger); }
+
+  .container { max-width: 1080px; margin: 0 auto; padding: 2rem; }
+  .grid { display: grid; grid-template-columns: 360px 1fr; gap: 1.5rem; align-items: start; }
+  @media(max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; margin-bottom: 1rem; }
+  .card-label { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 1rem; font-family: 'DM Mono', monospace; }
+
+  .setup-banner {
+    background: rgba(200,240,74,0.05); border: 1px solid rgba(200,240,74,0.18);
+    border-radius: 12px; padding: 1.1rem 1.25rem; margin-bottom: 1.5rem;
+    font-size: 12px; color: var(--muted); line-height: 1.7; font-family: 'DM Mono', monospace;
+  }
+  .setup-banner strong { color: var(--accent); font-weight: 500; }
+  .setup-banner a { color: var(--accent); text-decoration: none; }
+  .setup-banner a:hover { text-decoration: underline; }
+
+  label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 5px; font-family: 'DM Mono', monospace; letter-spacing: .04em; }
+  input[type="text"], input[type="password"], textarea {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; color: var(--text); font-family: 'Syne', sans-serif;
+    font-size: 13px; padding: 10px 13px; outline: none;
+    transition: border-color .2s; margin-bottom: 1rem;
+  }
+  input:focus, textarea:focus { border-color: rgba(200,240,74,0.35); }
+  textarea { resize: vertical; min-height: 90px; line-height: 1.65; }
+  input[type="password"] { font-family: 'DM Mono', monospace; letter-spacing: .08em; }
+
+  .type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 1rem; }
+  .type-pill {
+    padding: 9px 8px; border-radius: 9px; border: 1px solid var(--border);
+    background: transparent; color: var(--muted); font-family: 'Syne', sans-serif;
+    font-size: 12px; cursor: pointer; text-align: center; transition: all .15s;
+  }
+  .type-pill:hover { border-color: var(--border2); color: var(--text); }
+  .type-pill.active { border-color: var(--accent); color: var(--accent); background: rgba(200,240,74,0.06); }
+
+  .tone-wrap { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1rem; }
+  .tone-pill {
+    padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border);
+    background: transparent; color: var(--muted); font-family: 'Syne', sans-serif;
+    font-size: 11px; cursor: pointer; transition: all .15s;
+  }
+  .tone-pill:hover { border-color: var(--border2); color: var(--text); }
+  .tone-pill.active { border-color: var(--accent); color: var(--accent); background: rgba(200,240,74,0.06); }
+
+  .gen-btn {
+    width: 100%; padding: 13px; background: var(--accent); color: #0d0d0f;
+    border: none; border-radius: 10px; font-family: 'Syne', sans-serif;
+    font-size: 14px; font-weight: 700; cursor: pointer; transition: all .15s;
+  }
+  .gen-btn:hover:not(:disabled) { background: var(--accent2); transform: translateY(-1px); }
+  .gen-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+  .sec-btn {
+    flex: 1; padding: 9px; background: transparent; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 10px; font-family: 'Syne', sans-serif;
+    font-size: 12px; cursor: pointer; transition: all .15s;
+  }
+  .sec-btn:hover { border-color: var(--border2); color: var(--text); }
+
+  .output-panel { display: none; }
+  .output-panel.visible { display: block; }
+
+  .sec-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .sec-title { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .copy-btn {
+    font-size: 10px; color: var(--muted); background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 6px; padding: 3px 10px;
+    cursor: pointer; font-family: 'DM Mono', monospace; transition: all .15s;
+  }
+  .copy-btn:hover { color: var(--text); border-color: var(--border2); }
+  .copy-btn.copied { color: var(--accent); border-color: rgba(200,240,74,0.3); }
+
+  .output-text {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px; font-size: 13px;
+    line-height: 1.75; color: var(--text); white-space: pre-wrap; word-break: break-word;
+  }
+
+  .hashtag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .htag {
+    font-size: 11px; padding: 4px 10px; border-radius: 20px;
+    font-family: 'DM Mono', monospace; cursor: pointer; transition: opacity .15s; user-select: none;
+  }
+  .htag:hover { opacity: .7; }
+  .htag.c0 { background: rgba(200,240,74,0.1); color: var(--accent); border: 1px solid rgba(200,240,74,0.2); }
+  .htag.c1 { background: rgba(79,209,197,0.1); color: var(--teal); border: 1px solid rgba(79,209,197,0.2); }
+  .htag.c2 { background: rgba(183,148,244,0.1); color: var(--purple); border: 1px solid rgba(183,148,244,0.2); }
+
+  .hook-item {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; cursor: pointer; transition: border-color .15s;
+  }
+  .hook-item:hover { border-color: var(--border2); }
+  .hook-num { font-size: 10px; font-family: 'DM Mono', monospace; color: var(--muted2); margin-bottom: 4px; }
+  .hook-text { font-size: 13px; color: var(--text); line-height: 1.55; }
+
+  .scene-card {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; display: flex; gap: 12px;
+  }
+  .scene-badge {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: rgba(200,240,74,0.08); border: 1px solid rgba(200,240,74,0.2);
+    color: var(--accent); font-size: 11px; font-family: 'DM Mono', monospace;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px;
+  }
+  .scene-duration { font-size: 10px; color: var(--muted2); font-family: 'DM Mono', monospace; margin-bottom: 4px; }
+  .scene-visuals { font-size: 11px; color: var(--muted); margin-bottom: 5px; }
+  .scene-vo { font-size: 13px; color: var(--text); line-height: 1.55; }
+  .veo-prompt {
+    margin-top: 8px; padding: 8px 10px;
+    background: rgba(183,148,244,0.06); border: 1px solid rgba(183,148,244,0.15);
+    border-radius: 7px; font-size: 11px; color: var(--purple);
+    font-family: 'DM Mono', monospace; line-height: 1.6;
+  }
+  .veo-label { font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted2); margin-bottom: 4px; }
+
+  .visual-box {
+    background: rgba(183,148,244,0.05); border: 1px solid rgba(183,148,244,0.12);
+    border-radius: 10px; padding: 14px; font-size: 13px; color: var(--text); line-height: 1.7;
+  }
+  .tip-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .tip { font-size: 11px; padding: 4px 12px; border-radius: 20px; background: rgba(246,173,85,0.08); color: var(--orange); border: 1px solid rgba(246,173,85,0.18); }
+
+  .loading-wrap { display: none; text-align: center; padding: 3rem 1rem; }
+  .loading-wrap.visible { display: block; }
+  .spinner {
+    width: 34px; height: 34px; border: 2px solid var(--border2);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin .75s linear infinite; margin: 0 auto 1rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-msg { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+  .error-msg {
+    display: none; background: rgba(255,107,107,0.07); border: 1px solid rgba(255,107,107,0.2);
+    border-radius: 10px; padding: 12px 14px; font-size: 12px; color: var(--danger);
+    margin-top: 10px; font-family: 'DM Mono', monospace; line-height: 1.6;
+  }
+  .error-msg.visible { display: block; }
+
+  .model-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 10px; font-family: 'DM Mono', monospace;
+    color: var(--teal); background: rgba(79,209,197,0.08);
+    border: 1px solid rgba(79,209,197,0.18); border-radius: 20px;
+    padding: 3px 10px; margin-bottom: 1.2rem;
+  }
+  .model-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); }
+
+  .empty-state {
+    text-align: center; padding: 4rem 2rem;
+    color: var(--muted2); font-size: 13px; line-height: 1.8;
+    border: 1px dashed var(--border); border-radius: 16px;
+    font-family: 'DM Mono', monospace;
+  }
+  .empty-big { font-size: 2.2rem; margin-bottom: 1rem; font-family: 'DM Serif Display', serif; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">content<span>studio</span></div>
+  <div class="api-status">
+    <div class="dot" id="status-dot"></div>
+    <span id="status-text">no key set</span>
+  </div>
+</header>
+
+<div class="container">
+  <div class="grid">
+
+    <!-- LEFT PANEL -->
+    <div>
+      <div class="setup-banner">
+        <strong>Step 1:</strong> Get free API key at <a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a> → "Get API Key"<br>
+        <strong>Step 2:</strong> Paste it below. Key stays local in your browser only.
+      </div>
+
+      <div class="card">
+        <div class="model-badge"><div class="model-dot"></div>gemini-3-flash-preview · free</div>
+
+        <label>Google AI Studio API key</label>
+        <input type="password" id="api-key" placeholder="AIza..." oninput="checkKey()">
+
+        <div class="card-label">Content type</div>
+        <div class="type-grid" id="type-grid">
+          <button class="type-pill active" data-type="post" onclick="selectType(this)">Static post</button>
+          <button class="type-pill" data-type="reel" onclick="selectType(this)">Reel / video</button>
+          <button class="type-pill" data-type="carousel" onclick="selectType(this)">Carousel</button>
+          <button class="type-pill" data-type="story" onclick="selectType(this)">Story</button>
+        </div>
+
+        <label>Brief or topic</label>
+        <textarea id="brief" placeholder="e.g. Launching a productivity app for remote teams — highlight the async meeting feature that saves 2 hours a day."></textarea>
+
+        <label>Tone</label>
+        <div class="tone-wrap" id="tone-wrap">
+          <button class="tone-pill active" onclick="selectTone(this)">Professional</button>
+          <button class="tone-pill" onclick="selectTone(this)">Casual</button>
+          <button class="tone-pill" onclick="selectTone(this)">Inspirational</button>
+          <button class="tone-pill" onclick="selectTone(this)">Humorous</button>
+          <button class="tone-pill" onclick="selectTone(this)">Educational</button>
+          <button class="tone-pill" onclick="selectTone(this)">Promotional</button>
+        </div>
+
+        <label>Target audience</label>
+        <input type="text" id="audience" placeholder="e.g. remote workers, 25–35, tech-savvy">
+
+        <label>Brand name (optional)</label>
+        <input type="text" id="brand" placeholder="e.g. Flowly">
+
+        <label>Avatar for Veo 3 (optional — keep consistent across videos)</label>
+        <input type="text" id="avatar" placeholder="e.g. confident South Asian woman, 28, white linen shirt, minimal desk, warm light">
+
+        <button class="gen-btn" id="gen-btn" onclick="generate()" disabled>Generate content</button>
+        <div class="error-msg" id="error-msg"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div>
+      <div id="empty-state" class="empty-state">
+        <div class="empty-big">✦</div>
+        Enter your brief and hit generate.<br>
+        Caption · hooks · Reel script · Veo 3 prompts · hashtags.
+      </div>
+
+      <div class="loading-wrap" id="loading-wrap">
+        <div class="spinner"></div>
+        <div class="loading-msg" id="loading-msg">Thinking with Gemini 3 Flash...</div>
+      </div>
+
+      <div class="output-panel" id="output-panel">
+
+        <div class="card">
+          <div class="sec-header">
+            <span class="sec-title">Caption</span>
+            <button class="copy-btn" onclick="copyEl('caption-text', this)">Copy</button>
+          </div>
+          <div class="output-text" id="caption-text"></div>
+          <div style="margin-top:12px">
+            <div class="sec-title" style="margin-bottom:8px">Hashtags <span style="color:var(--muted2);font-size:9px">(click to copy)</span></div>
+            <div class="hashtag-row" id="hashtag-row"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="sec-header">
+            <span class="sec-title">Hook variations</span>
+            <span style="font-size:10px;color:var(--muted2);font-family:'DM Mono',monospace">first line decides everything</span>
+          </div>
+          <div id="hooks-list"></div>
+        </div>
+
+        <div class="card" id="script-card" style="display:none">
+          <div class="sec-header">
+            <span class="sec-title" id="script-title">Reel script + Veo 3 prompts</span>
+            <button class="copy-btn" onclick="copyVal('script-raw', this)">Copy all</button>
+          </div>
+          <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:12px" id="script-meta"></div>
+          <div id="scenes-list"></div>
+          <textarea id="script-raw" style="display:none"></textarea>
+        </div>
+
+        <div class="card">
+          <div class="sec-header">
+            <span class="sec-title">Visual direction</span>
+            <button class="copy-btn" onclick="copyVal('visual-raw', this)">Copy</button>
+          </div>
+          <div class="visual-box" id="visual-text"></div>
+          <textarea id="visual-raw" style="display:none"></textarea>
+          <div class="tip-row" id="tip-row"></div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <button class="sec-btn" onclick="generate()">Regenerate</button>
+          <button class="sec-btn" onclick="resetOutput()">New brief</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let selectedType = 'post';
+let selectedTone = 'Professional';
+const msgs = ['Thinking with Gemini 3 Flash...','Writing your caption...','Crafting hook variations...','Building Reel script...','Generating Veo 3 prompts...','Almost ready...'];
+
+function checkKey() {
+  const k = document.getElementById('api-key').value.trim();
+  const dot = document.getElementById('status-dot');
+  const txt = document.getElementById('status-text');
+  const btn = document.getElementById('gen-btn');
+  if (k.length > 10) { dot.className = 'dot ok'; txt.textContent = 'key set'; btn.disabled = false; }
+  else { dot.className = 'dot'; txt.textContent = 'no key set'; btn.disabled = true; }
+}
+
+function selectType(el) {
+  document.querySelectorAll('#type-grid .type-pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active'); selectedType = el.dataset.type;
+}
+function selectTone(el) {
+  document.querySelectorAll('#tone-wrap .tone-pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active'); selectedTone = el.textContent;
+}
+
+function copyEl(id, btn) {
+  navigator.clipboard.writeText(document.getElementById(id).innerText).then(() => flash(btn));
+}
+function copyVal(id, btn) {
+  navigator.clipboard.writeText(document.getElementById(id).value).then(() => flash(btn));
+}
+function flash(btn) {
+  btn.textContent = 'Copied!'; btn.classList.add('copied');
+  setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+}
+function copyHashtag(el, tag) {
+  navigator.clipboard.writeText(tag);
+  const o = el.textContent; el.textContent = 'copied';
+  setTimeout(() => el.textContent = o, 1200);
+}
+function resetOutput() {
+  document.getElementById('output-panel').classList.remove('visible');
+  document.getElementById('empty-state').style.display = 'block';
+  document.getElementById('brief').value = '';
+}
+function showError(msg) {
+  const el = document.getElementById('error-msg'); el.textContent = msg; el.classList.add('visible');
+}
+function hideError() { document.getElementById('error-msg').classList.remove('visible'); }
+
+async function generate() {
+  const key = document.getElementById('api-key').value.trim();
+  const brief = document.getElementById('brief').value.trim();
+  if (!key) { showError('Please enter your Google AI Studio API key.'); return; }
+  if (!brief) { document.getElementById('brief').focus(); return; }
+  hideError();
+
+  const audience = document.getElementById('audience').value.trim() || 'general Instagram audience';
+  const brand = document.getElementById('brand').value.trim();
+  const avatar = document.getElementById('avatar').value.trim();
+  const typeMap = {
+    post: 'static Instagram post',
+    reel: 'Instagram Reel (vertical video, 15-30 sec)',
+    carousel: 'Instagram carousel (5-7 swipeable slides)',
+    story: 'Instagram Story (vertical, 15 sec)'
+  };
+  const needsScript = selectedType === 'reel' || selectedType === 'story';
+  const needsSlides = selectedType === 'carousel';
+  const avatarLine = avatar
+    ? `Avatar for Veo 3 (use EXACTLY this in every veo3_prompt for consistency): ${avatar}`
+    : 'No avatar — use lifestyle/product visuals in Veo 3 prompts.';
+
+  const scriptBlock = needsScript ? `,"script":{"duration":"15-30 sec","scenes":[{"scene":1,"duration_range":"0-4s","visuals":"describe visuals","voiceover":"words spoken or text overlay","veo3_prompt":"Full Veo 3 prompt: subject, setting, lighting, camera, motion, mood, photorealistic, 9:16 vertical"},{"scene":2,"duration_range":"4-18s","visuals":"...","voiceover":"...","veo3_prompt":"..."},{"scene":3,"duration_range":"18-26s","visuals":"...","voiceover":"...","veo3_prompt":"..."},{"scene":4,"duration_range":"26-30s","visuals":"CTA closing","voiceover":"...","veo3_prompt":"..."}]}` : '';
+  const slidesBlock = needsSlides ? `,"slides":[{"slide":1,"headline":"Hook headline","body":"supporting copy","design_note":"color/layout hint"},{"slide":2,"headline":"...","body":"...","design_note":"..."},{"slide":3,"headline":"...","body":"...","design_note":"..."},{"slide":4,"headline":"...","body":"...","design_note":"..."},{"slide":5,"headline":"CTA","body":"follow/save/DM","design_note":"..."}]` : '';
+
+  const prompt = `You are an expert Instagram content strategist, copywriter, and video director.
+Generate a complete content package for Instagram.
+
+Brief: ${brief}
+Type: ${typeMap[selectedType]}
+Tone: ${selectedTone}
+Audience: ${audience}
+${brand ? 'Brand: ' + brand : ''}
+${avatarLine}
+
+Respond ONLY with valid JSON, no markdown or backticks:
+{"caption":"150-220 char caption, strong opening, no inline hashtags, ends with CTA","hashtags":["tag1","tag2","tag3","tag4","tag5","tag6","tag7","tag8","tag9","tag10"],"hooks":["Hook 1 — bold statement","Hook 2 — curiosity/question","Hook 3 — relatable pain point"]${scriptBlock}${slidesBlock},"visual_direction":"2-3 sentences on mood, color palette, lighting, composition","format_tips":["tip1","tip2","tip3"]}`;
+
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('output-panel').classList.remove('visible');
+  document.getElementById('loading-wrap').classList.add('visible');
+  document.getElementById('gen-btn').disabled = true;
+
+  let mi = 0;
+  const t = setInterval(() => { mi = (mi+1)%msgs.length; document.getElementById('loading-msg').textContent = msgs[mi]; }, 2000);
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${key}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.9, maxOutputTokens: 2048 }
+        })
+      }
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || `API error ${res.status}`);
+
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const parsed = JSON.parse(raw.replace(/```json|```/gi,'').trim());
+
+    clearInterval(t);
+    document.getElementById('loading-wrap').classList.remove('visible');
+    document.getElementById('gen-btn').disabled = false;
+    document.getElementById('status-dot').className = 'dot ok';
+    document.getElementById('status-text').textContent = 'connected';
+
+    document.getElementById('caption-text').textContent = parsed.caption || '';
+
+    const colors = ['c0','c1','c2'];
+    document.getElementById('hashtag-row').innerHTML = (parsed.hashtags||[]).map((h,i) => {
+      const tag = '#'+h.replace(/^#/,'');
+      return `<span class="htag ${colors[i%3]}" onclick="copyHashtag(this,'${tag}')" title="Click to copy">${tag}</span>`;
+    }).join('');
+
+    document.getElementById('hooks-list').innerHTML = (parsed.hooks||[]).map((h,i) =>
+      `<div class="hook-item"><div class="hook-num">option ${i+1}</div><div class="hook-text">${h}</div></div>`
+    ).join('');
+
+    const sc = document.getElementById('script-card');
+    if (needsScript && parsed.script) {
+      sc.style.display = 'block';
+      document.getElementById('script-title').textContent = selectedType==='story' ? 'Story script + Veo 3 prompts' : 'Reel script + Veo 3 prompts';
+      document.getElementById('script-meta').textContent = `Duration: ${parsed.script.duration} · ${(parsed.script.scenes||[]).length} scenes`;
+      let raw2 = '';
+      document.getElementById('scenes-list').innerHTML = (parsed.script.scenes||[]).map(s => {
+        raw2 += `SCENE ${s.scene} (${s.duration_range})\nVisuals: ${s.visuals}\nVoiceover: ${s.voiceover}\nVeo 3 prompt: ${s.veo3_prompt}\n\n`;
+        return `<div class="scene-card">
+          <div class="scene-badge">${s.scene}</div>
+          <div style="flex:1">
+            <div class="scene-duration">${s.duration_range}</div>
+            <div class="scene-visuals">Visuals: ${s.visuals}</div>
+            <div class="scene-vo">${s.voiceover}</div>
+            ${s.veo3_prompt ? `<div class="veo-prompt"><div class="veo-label">Veo 3 prompt — paste directly into AI Studio</div>${s.veo3_prompt}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+      document.getElementById('script-raw').value = raw2;
+    } else if (needsSlides && parsed.slides) {
+      sc.style.display = 'block';
+      document.getElementById('script-title').textContent = 'Carousel slides';
+      document.getElementById('script-meta').textContent = `${parsed.slides.length} slides`;
+      let raw3 = '';
+      document.getElementById('scenes-list').innerHTML = parsed.slides.map(s => {
+        raw3 += `SLIDE ${s.slide}\nHeadline: ${s.headline}\nBody: ${s.body}\nDesign: ${s.design_note||''}\n\n`;
+        return `<div class="scene-card">
+          <div class="scene-badge">${s.slide}</div>
+          <div style="flex:1">
+            <div class="scene-vo" style="font-weight:500;margin-bottom:4px">${s.headline}</div>
+            <div class="scene-visuals">${s.body}</div>
+            ${s.design_note ? `<div class="veo-prompt"><div class="veo-label">Design note</div>${s.design_note}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+      document.getElementById('script-raw').value = raw3;
+    } else { sc.style.display = 'none'; }
+
+    document.getElementById('visual-text').textContent = parsed.visual_direction || '';
+    document.getElementById('visual-raw').value = parsed.visual_direction || '';
+    document.getElementById('tip-row').innerHTML = (parsed.format_tips||[]).map(t => `<span class="tip">${t}</span>`).join('');
+
+    document.getElementById('output-panel').classList.add('visible');
+
+  } catch(err) {
+    clearInterval(t);
+    document.getElementById('loading-wrap').classList.remove('visible');
+    document.getElementById('gen-btn').disabled = false;
+    document.getElementById('empty-state').style.display = 'block';
+    document.getElementById('status-dot').className = 'dot err';
+    document.getElementById('status-text').textContent = 'error';
+    showError('Error: ' + (err.message || 'Check your API key and try again.'));
+  }
+}
+</script>
+</body>
+</html>
