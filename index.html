@@ -437,7 +437,33 @@ Respond ONLY with valid JSON, no markdown or backticks:
     if (!res.ok) throw new Error(data.error?.message || `API error ${res.status}`);
 
     const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const parsed = JSON.parse(raw.replace(/```json|```/gi,'').trim());
+    let parsed;
+    const clean2 = raw.replace(/```json|```/gi,'').trim();
+    try {
+      parsed = JSON.parse(clean2);
+    } catch(e) {
+      try {
+        // Remove control characters and try again
+        const sanitized = clean2.replace(/[\x00-\x1F\x7F]/g, ' ');
+        parsed = JSON.parse(sanitized);
+      } catch(e2) {
+        // Ask Gemini to fix its own output
+        const fixRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${key}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: `Fix this broken JSON and return ONLY valid JSON, no backticks, no extra text:\n${clean2}` }] }],
+              generationConfig: { temperature: 0.1, maxOutputTokens: 2048 }
+            })
+          }
+        );
+        const fixData = await fixRes.json();
+        const fixedRaw = fixData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        parsed = JSON.parse(fixedRaw.replace(/```json|```/gi,'').trim());
+      }
+    }
 
     clearInterval(t);
     document.getElementById('loading-wrap').classList.remove('visible');
